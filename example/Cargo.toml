@@ -1,0 +1,10 @@
+[package]
+name = "vadiarize_grpc_examples"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+silero_vad.workspace = true
+hound.workspace = true

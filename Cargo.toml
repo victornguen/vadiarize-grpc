@@ -1,10 +1,20 @@
-[package]
+[workspace.package]
 name = "vadiarize_grpc"
 version = "0.1.0"
+authors = ["Victor Nguen <victor.nguen@gmail.com>"]
 edition = "2021"
+publish = false
 
-[dependencies]
-tonic = { version = "0.12", features = ["gzip", "tls"]}
+[workspace]
+resolver = "2"
+members = [
+    "example",
+    "silero_vad",
+]
+
+[workspace.dependencies]
+silero_vad = { path = "silero_vad" }
+tonic = { version = "0.12", features = ["gzip", "tls"] }
 tonic-types = "0.12"
 tonic-reflection = "0.12"
 prost = "0.13"
@@ -18,7 +28,17 @@ config = "0.14"
 anyhow = "1.0"
 thiserror = "2"
 log = { version = "0.4", features = ["std"] }
-env_logger = { version = "0.11", default-features = false, features = ["color"]}
+env_logger = { version = "0.11", default-features = false, features = ["color"] }
 futures = "0.3.31"
-voice-stream = { version = "0.3.0", features = ["windows"]}
+lazy_static = "1.5"
+lockfree-object-pool = "0.1"
+heapless = { version = "0.8", features = ["serde"] }
+
+ort = { version = "=2.0.0-rc.9", features = ["load-dynamic", "coreml", "ndarray", "directml", "cuda"] }
+ort-sys = "=2.0.0-rc.9"
+hound = "3"
 parking_lot = { version = "0.12", features = ["hardware-lock-elision", "serde", "deadlock_detection", "arc_lock"] }
+ndarray = "0.16"
+
+tonic-build = { version = "0.12", features = [] }
+protox = "0.7"
