@@ -9,7 +9,7 @@ publish = false
 resolver = "2"
 members = [
     "example",
-    "silero_vad",
+    "silero_vad", "vad_grpc",
 ]
 
 [workspace.dependencies]
@@ -24,7 +24,7 @@ clap = { version = "4.5", features = ["derive"] }
 dotenv = "0.15"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
-config = "0.14"
+config = "0.15"
 anyhow = "1.0"
 thiserror = "2"
 log = { version = "0.4", features = ["std"] }
@@ -33,12 +33,20 @@ futures = "0.3.31"
 lazy_static = "1.5"
 lockfree-object-pool = "0.1"
 heapless = { version = "0.8", features = ["serde"] }
+itertools = "0.13"
 
+# silero_vad
 ort = { version = "=2.0.0-rc.9", features = ["load-dynamic", "coreml", "ndarray", "directml", "cuda"] }
 ort-sys = "=2.0.0-rc.9"
 hound = "3"
 parking_lot = { version = "0.12", features = ["hardware-lock-elision", "serde", "deadlock_detection", "arc_lock"] }
 ndarray = "0.16"
 
+# build dependencies
 tonic-build = { version = "0.12", features = [] }
 protox = "0.7"
+
+
+[profile.release-lto]
+inherits = "release"
+lto = true

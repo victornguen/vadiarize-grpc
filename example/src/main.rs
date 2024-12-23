@@ -8,7 +8,7 @@ fn main() {
         std::env::var("SILERO_MODEL_PATH").unwrap_or_else(|_| String::from("silero_vad/model/silero_vad_3.onnx"));
     let audio_path = std::env::args()
         .nth(1)
-        .unwrap_or_else(|| String::from("out_stereo_ch1_16k.wav"));
+        .unwrap_or_else(|| String::from("700_lastpart_ch1_16k.wav"));
     let mut wav_reader = hound::WavReader::open(audio_path).unwrap();
 
     let sample_rate = SampleRate::from(wav_reader.spec().sample_rate as usize);
@@ -16,11 +16,8 @@ fn main() {
     if wav_reader.spec().sample_format != hound::SampleFormat::Int {
         panic!("Unsupported sample format. Expect Int.");
     }
-    let content = wav_reader
-        .samples()
-        .filter_map(|x| x.ok())
-        .collect::<Vec<i16>>()
-        .repeat(10);
+    let content = wav_reader.samples().filter_map(|x| x.ok()).collect::<Vec<i16>>();
+    // .repeat(10);
     assert!(!content.is_empty());
 
     let vad_params = utils::VadParams {
@@ -33,7 +30,7 @@ fn main() {
     let f = || recognizer.process(&content).unwrap();
     let res = timed("VAD", f);
 
-    res.iter().for_each(|ts| println!("{} - {}", ts.start, ts.end));
+    // res.iter().for_each(|ts| println!("{} - {}", ts.start, ts.end));
 
     println!("Finished.");
 }

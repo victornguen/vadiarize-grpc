@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package vad_grpc;
+
+service VadRecognizer {
+  rpc Detect(VadRequest) returns (VadResponse) {}
+  rpc DetectStream(stream VadRequest) returns (stream VadResponse) {}
+}
+
+message VadRequest {
+  optional string request_id = 1;
+  bytes audio = 2;
+}
+
+message VadResponse {
+  optional string request_id = 1;
+  repeated SpeechInterval intervals = 2;
+}
+
+// SpeechInterval represents a speech interval in seconds
+message SpeechInterval {
+  double start_s = 1;
+  double end_s = 2;
+}

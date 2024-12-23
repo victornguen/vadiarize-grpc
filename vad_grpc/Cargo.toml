@@ -1,0 +1,38 @@
+[package]
+name = "vad_grpc_server"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+silero_vad.workspace = true
+tonic.workspace = true
+tonic-types.workspace = true
+tonic-reflection.workspace = true
+prost.workspace = true
+prost-derive.workspace = true
+tokio.workspace = true
+clap.workspace = true
+dotenv.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+config.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+log.workspace = true
+env_logger.workspace = true
+futures.workspace = true
+hound.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true
+protox.workspace = true
+
+[[bin]]
+name = "vad_grpc_server"
+path = "src/main.rs"
+
+[lib]
+name = "vad_grpc_server"
+path = "src/lib.rs"

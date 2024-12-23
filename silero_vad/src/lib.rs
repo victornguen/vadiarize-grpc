@@ -7,6 +7,8 @@ pub mod recognizer;
 pub mod tools;
 
 pub use recognizer::Recognizer;
+pub use utils::TimeStamp;
+pub use utils::VadParams;
 
 pub type OnnxSession = ort::session::Session;
 

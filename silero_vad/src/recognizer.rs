@@ -1,5 +1,5 @@
 use crate::utils::{TimeStamp, VadParams};
-use crate::{error, silero, utils, vad_iter, OnnxSession};
+use crate::{error, silero, vad_iter, OnnxSession};
 use lockfree_object_pool::MutexObjectPool;
 use ort::session::builder::GraphOptimizationLevel;
 use std::iter::Cycle;
@@ -14,9 +14,8 @@ pub struct Recognizer {
 impl Recognizer {
     pub fn new(model_path: &str, vad_params: VadParams, sessions_num: u8) -> Result<Self, error::VadError> {
         let onnx_sessions = (0..sessions_num)
-            .map(|_| Recognizer::make_onnx_session(model_path).expect("onnx session error"))
-            .map(|session| Arc::new(session))
-            .collect::<Vec<_>>();
+            .map(|_| Recognizer::make_onnx_session(model_path).map(Arc::new))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let sessions_iter = Arc::new(parking_lot::Mutex::new(onnx_sessions.into_iter().cycle()));
 
@@ -48,15 +47,9 @@ impl Recognizer {
         Ok(session)
     }
 
-    pub fn process(&self, samples: &[i16]) -> Result<Vec<TimeStamp>, ort::Error> {
+    pub fn process(&self, samples: &[i16]) -> Result<Vec<TimeStamp>, error::VadError> {
         let mut vad = self.vad_iter_pool.pull();
         vad.process(samples)?;
         Ok(vad.speeches())
     }
-}
-
-struct VadIterProducer {
-    sessions: Arc<parking_lot::Mutex<Cycle<IntoIter<Arc<OnnxSession>>>>>,
-    sample_rate: utils::SampleRate,
-    vad_params: utils::VadParams,
 }

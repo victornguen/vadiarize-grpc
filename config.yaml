@@ -1,0 +1,8 @@
+server:
+  host: 0.0.0.0
+  port: 9090
+logging:
+  log_level: DEBUG
+vad:
+  model_path: "silero_vad/model/silero_vad.onnx"
+  sessions_num: 5
