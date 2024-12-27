@@ -1,10 +1,12 @@
-use crate::pb::vad_grpc::vad_recognizer_server::VadRecognizer;
-use crate::pb::vad_grpc::{SpeechInterval, VadRequest, VadResponse};
+use crate::pb::vad_grpc_v1::vad_recognizer_server::VadRecognizer;
+use crate::pb::vad_grpc_v1::{AudioConfig, AudioType, SpeechInterval, VadRequest, VadResponse, VadStreamRequest};
 use crate::settings::settings::Settings;
-use crate::VadService;
+use crate::{tools, VadService};
 use futures::Stream;
 use std::pin::Pin;
 use tonic::{Request, Response, Status, Streaming};
+use vad_grpc_server::VadServiceError;
+use crate::pb::vad_grpc_v1::vad_stream_request::Content;
 
 pub struct VadServiceController {
     vad: VadService,
@@ -15,6 +17,47 @@ impl VadServiceController {
         let vad = VadService::new(&settings.vad)?;
         Ok(Self { vad })
     }
+
+    fn get_audio_and_config_from_request(request: &VadRequest) -> Result<(Vec<i16>, AudioConfig), Status> {
+        let config = request
+            .config
+            .ok_or_else(|| Status::invalid_argument("No config provided"))?;
+
+        let audio = Self::transform_audio_to_i16(&request.audio, &config)?;
+
+        Ok((audio, config))
+    }
+
+    // async fn get_audio_and_config_from_stream_request(request: &VadStreamRequest) -> Result<(Vec<i16>, AudioConfig), Status> {
+    //     // get first message from stream
+    //     let mut stream = request.into_inner();
+    //     let first_message = stream
+    //         .message()
+    //         .await?
+    //         .and_then(|m| m.content)
+    //         .ok_or_else(|| Status::invalid_argument("No messages in stream"))?;
+    //     let config = match first_message {
+    //         Content::Config(config) => Ok(config),
+    //         Content::Audio(_) => Err(Status::invalid_argument("First message must be config")),
+    //     }?;
+    //
+    //     stream
+    // }
+    //
+    fn transform_audio_to_i16(audio: &[u8], config: &AudioConfig) -> Result<Vec<i16>, Status> {
+        match config.audio_type() {
+            AudioType::RawPcmS16le => Ok(tools::wav::bytes_to_i16(audio)),
+            AudioType::RawPcmS16be => {
+                let bytes = tools::transcode::pcm_s16be_to_pcm_s16le(audio);
+                Ok(tools::wav::bytes_to_i16(&bytes))
+            }
+            AudioType::WavPcmS16le => tools::wav::get_samples_from_wav(audio),
+            AudioType::Unspecified => {
+                Err(VadServiceError::InvalidAudio("Only pcm_s16le and pcm_s16be are supported".to_string()))
+            }
+        }
+            .map_err(|e| Status::invalid_argument(format!("Failed to parse audio: {}", e)))
+    }
 }
 
 #[tonic::async_trait]
@@ -22,16 +65,10 @@ impl VadRecognizer for VadServiceController {
     async fn detect(&self, request: Request<VadRequest>) -> Result<Response<VadResponse>, Status> {
         let request = request.into_inner();
         // transform request.audio, which is a Vec<u8>, into a Vec<i16> by union 2 bytes into 1 float
-        let audio = request
-            .audio
-            .chunks(2)
-            .map(|chunk| {
-                let mut bytes = [0; 2];
-                bytes.copy_from_slice(chunk);
-                i16::from_ne_bytes(bytes)
-            })
-            .collect();
-        let result = self.vad.recognize(audio).map_err(|e| Status::internal(e.to_string()))?;
+
+        let (audio, config) = Self::get_audio_and_config_from_request(&request)?;
+
+        let result = self.vad.recognize(audio, config.sample_rate as u32).map_err(|e| Status::internal(e.to_string()))?;
         let intervals = result
             .into_iter()
             .map(|ts| {
@@ -50,12 +87,24 @@ impl VadRecognizer for VadServiceController {
         Ok(Response::new(response))
     }
 
-    type DetectStreamStream = Pin<Box<dyn Stream<Item = Result<VadResponse, Status>> + Send>>;
+    type DetectStreamStream = Pin<Box<dyn Stream<Item=Result<VadResponse, Status>> + Send>>;
 
     async fn detect_stream(
         &self,
-        request: Request<Streaming<VadRequest>>,
+        request: Request<Streaming<VadStreamRequest>>,
     ) -> Result<Response<Self::DetectStreamStream>, Status> {
-        todo!()
+        // get first message from stream
+        let mut stream = request.into_inner();
+        let first_message = stream
+            .message()
+            .await?
+            .and_then(|m| m.content)
+            .ok_or_else(|| Status::invalid_argument("No messages in stream"))?;
+        let config = match first_message {
+            Content::Config(config) => Ok(config),
+            Content::Audio(_) => Err(Status::invalid_argument("First message must be config")),
+        }?;
+
+        // stream.for
     }
 }

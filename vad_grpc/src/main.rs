@@ -4,9 +4,10 @@ mod controller;
 mod pb;
 mod service;
 mod settings;
+mod tools;
 
 use crate::controller::VadServiceController;
-use crate::pb::vad_grpc::vad_recognizer_server;
+use crate::pb::vad_grpc_v1::vad_recognizer_server;
 use crate::settings::settings::Settings;
 pub(crate) use service::vad::VadService;
 
@@ -55,8 +56,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use crate::controller::VadServiceController;
-    use crate::pb::vad_grpc::vad_recognizer_client::VadRecognizerClient;
-    use crate::pb::vad_grpc::{vad_recognizer_server, VadRequest};
+    use crate::pb::vad_grpc_v1::vad_recognizer_client::VadRecognizerClient;
+    use crate::pb::vad_grpc_v1::{vad_recognizer_server, AudioType, VadRequest};
     use crate::settings::settings::Settings;
     use std::sync::{Arc, LazyLock, OnceLock};
 
@@ -71,19 +72,20 @@ mod tests {
         vad: crate::settings::settings::VadSettings {
             model_path: "../silero_vad/model/silero_vad.onnx".to_string(),
             sessions_num: 1,
+            ..Default::default()
         },
     });
 
     static SERVER_HANDLE: OnceLock<()> = OnceLock::new();
 
-    async fn start_server() {
+    fn start_server() -> () {
         SERVER_HANDLE.get_or_init(|| {
             let vad_service = VadServiceController::new(&SETTINGS).expect("Failed to create VadService");
 
             let addr = format!("{}:{}", SETTINGS.server.host, SETTINGS.server.port);
             println!("Server listening on {}", addr);
 
-            tokio::spawn(async move {
+            let server = tokio::spawn(async move {
                 tonic::transport::Server::builder()
                     .add_service(
                         vad_recognizer_server::VadRecognizerServer::new(vad_service)
@@ -98,32 +100,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vad() {
-        start_server().await;
-
-        let content = vec![32532i16; 16000 * 10];
-
-        let addr = format!("http://localhost:{}", SETTINGS.server.port);
-        let mut client = VadRecognizerClient::connect(addr).await.expect("Failed to connect");
-
-        let request = tonic::Request::new(VadRequest {
-            audio: content.iter().map(|x| x.to_ne_bytes().to_vec()).flatten().collect(),
-            request_id: None,
-        });
-
-        let response = client.detect(request).await.expect("Failed to call RPC");
-
-        let response = response.into_inner();
-        response
-            .intervals
-            .iter()
-            .for_each(|ts| println!("{} - {}", ts.start_s, ts.end_s));
-        assert_eq!(response.intervals.len(), 0);
-    }
-
-    #[tokio::test]
     async fn test_vad_multithread() {
-        start_server().await;
+        start_server();
 
         let content = vec![32532i16; 16000 * 10];
 
@@ -132,7 +110,10 @@ mod tests {
 
         let message = Arc::new(VadRequest {
             audio: content.iter().map(|x| x.to_ne_bytes().to_vec()).flatten().collect(),
-            request_id: None,
+            config: Some(crate::pb::vad_grpc_v1::AudioConfig {
+                audio_type: AudioType::RawPcmS16le as i32,
+                sample_rate: 16000,
+            }),
         });
 
         let handles: Vec<_> = (0..10)

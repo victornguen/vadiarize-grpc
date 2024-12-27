@@ -5,10 +5,8 @@ use silero_vad::Recognizer;
 
 fn main() {
     let model_path =
-        std::env::var("SILERO_MODEL_PATH").unwrap_or_else(|_| String::from("silero_vad/model/silero_vad_3.onnx"));
-    let audio_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| String::from("700_lastpart_ch1_16k.wav"));
+        std::env::var("SILERO_MODEL_PATH").unwrap_or_else(|_| String::from("silero_vad/model/silero_vad.onnx"));
+    let audio_path = std::env::args().nth(1).unwrap_or_else(|| String::from("audio.wav"));
     let mut wav_reader = hound::WavReader::open(audio_path).unwrap();
 
     let sample_rate = SampleRate::from(wav_reader.spec().sample_rate as usize);

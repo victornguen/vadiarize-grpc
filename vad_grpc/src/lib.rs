@@ -8,6 +8,14 @@ pub enum VadServiceError {
         #[from]
         silero_vad::error::VadError,
     ),
+    #[error("Hound error: {0}")]
+    WavReaderError(
+        #[source]
+        #[from]
+        hound::Error,
+    ),
+    #[error("Invalid audio: {0}")]
+    InvalidAudio(String),
     #[error("Error: {0}")]
     Internal(
         #[source]

@@ -1,19 +1,36 @@
 syntax = "proto3";
 
-package vad_grpc;
+package vad_grpc.v1;
 
 service VadRecognizer {
   rpc Detect(VadRequest) returns (VadResponse) {}
-  rpc DetectStream(stream VadRequest) returns (stream VadResponse) {}
+  rpc DetectStream(stream VadStreamRequest) returns (stream VadResponse) {}
+}
+
+message AudioConfig {
+  int32 sample_rate = 1;
+  AudioType audio_type = 2;
 }
 
 message VadRequest {
-  optional string request_id = 1;
+  AudioConfig config = 1;
   bytes audio = 2;
 }
 
+message VadStreamRequest {
+  oneof content {
+    AudioConfig config = 1;
+    Audio audio = 2;
+  }
+
+  message Audio {
+    string request_id = 1;
+    bytes audio = 2;
+  }
+}
+
 message VadResponse {
-  optional string request_id = 1;
+  optional string request_id = 1; // request_id set in stream response
   repeated SpeechInterval intervals = 2;
 }
 
@@ -21,4 +38,11 @@ message VadResponse {
 message SpeechInterval {
   double start_s = 1;
   double end_s = 2;
+}
+
+enum AudioType {
+  UNSPECIFIED = 0;
+  RAW_PCM_S16LE = 1;
+  RAW_PCM_S16BE = 2;
+  WAV_PCM_S16LE = 3;
 }
