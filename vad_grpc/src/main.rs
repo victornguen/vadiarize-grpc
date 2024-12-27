@@ -57,9 +57,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use crate::controller::VadServiceController;
     use crate::pb::vad_grpc_v1::vad_recognizer_client::VadRecognizerClient;
-    use crate::pb::vad_grpc_v1::{vad_recognizer_server, AudioType, VadRequest};
+    use crate::pb::vad_grpc_v1::{vad_recognizer_server, AudioType, VadRequest, VadStreamRequest};
     use crate::settings::settings::Settings;
-    use std::sync::{Arc, LazyLock, OnceLock};
+    use std::net::TcpListener;
+    use std::sync::{Arc, LazyLock};
 
     static SETTINGS: LazyLock<Settings> = LazyLock::new(|| Settings {
         server: crate::settings::settings::Server {
@@ -76,36 +77,38 @@ mod tests {
         },
     });
 
-    static SERVER_HANDLE: OnceLock<()> = OnceLock::new();
+    fn get_free_port() -> u16 {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to address");
+        listener.local_addr().unwrap().port()
+    }
 
-    fn start_server() -> () {
-        SERVER_HANDLE.get_or_init(|| {
-            let vad_service = VadServiceController::new(&SETTINGS).expect("Failed to create VadService");
+    fn start_server() -> u16 {
+        let port = get_free_port();
+        let vad_service = VadServiceController::new(&SETTINGS).expect("Failed to create VadService");
 
-            let addr = format!("{}:{}", SETTINGS.server.host, SETTINGS.server.port);
-            println!("Server listening on {}", addr);
+        let addr = format!("{}:{}", SETTINGS.server.host, port);
+        println!("Server listening on {}", addr);
 
-            let server = tokio::spawn(async move {
-                tonic::transport::Server::builder()
-                    .add_service(
-                        vad_recognizer_server::VadRecognizerServer::new(vad_service)
-                            .max_decoding_message_size(100 * 1024 * 1024),
-                    )
-                    .serve(addr.parse().expect("Failed to parse address"))
-                    .await
-                    .expect("Failed to start server");
-            });
-            ()
+        let server = tokio::spawn(async move {
+            tonic::transport::Server::builder()
+                .add_service(
+                    vad_recognizer_server::VadRecognizerServer::new(vad_service)
+                        .max_decoding_message_size(100 * 1024 * 1024),
+                )
+                .serve(addr.parse().expect("Failed to parse address"))
+                .await
+                .expect("Failed to start server");
         });
+        port
     }
 
     #[tokio::test]
     async fn test_vad_multithread() {
-        start_server();
+        let port = start_server();
 
         let content = vec![32532i16; 16000 * 10];
 
-        let addr = format!("http://localhost:{}", SETTINGS.server.port);
+        let addr = format!("http://localhost:{}", port);
         let client = Arc::new(VadRecognizerClient::connect(addr).await.expect("Failed to connect"));
 
         let message = Arc::new(VadRequest {
@@ -140,5 +143,33 @@ mod tests {
         for handle in handles {
             handle.await.expect("Task failed");
         }
+    }
+
+    #[tokio::test]
+    async fn test_vad_stream() {
+        let port = start_server();
+
+        let content = vec![32532i16; 16000 * 10];
+
+        let addr = format!("http://localhost:{}", port);
+        let client = Arc::new(VadRecognizerClient::connect(addr).await.expect("Failed to connect"));
+
+        let config_message = Arc::new(VadStreamRequest {
+            content: Some(crate::pb::vad_grpc_v1::vad_stream_request::Content::Config(
+                crate::pb::vad_grpc_v1::AudioConfig {
+                    audio_type: AudioType::RawPcmS16le as i32,
+                    sample_rate: 16000,
+                },
+            )),
+        });
+
+        let message = Arc::new(VadStreamRequest {
+            content: Some(crate::pb::vad_grpc_v1::vad_stream_request::Content::Audio(
+                crate::pb::vad_grpc_v1::vad_stream_request::Audio {
+                    audio: content.iter().map(|x| x.to_ne_bytes().to_vec()).flatten().collect(),
+                    request_id: "1".to_string(),
+                },
+            )),
+        });
     }
 }
