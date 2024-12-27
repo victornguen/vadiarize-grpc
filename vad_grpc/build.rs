@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proto_files = ["./proto/vad_grpc.proto"];
     let include_dirs = ["proto"];
 
-    let file_descriptor_set_path = out_dir.join("inference_server_descriptor.bin");
+    let file_descriptor_set_path = out_dir.join("server_descriptor.bin");
 
     let fds = protox::compile(&proto_files, &include_dirs).unwrap();
     write_fds(&fds, &file_descriptor_set_path);

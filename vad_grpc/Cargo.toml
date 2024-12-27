@@ -12,6 +12,7 @@ tonic-types.workspace = true
 tonic-reflection.workspace = true
 prost.workspace = true
 prost-derive.workspace = true
+prost-types.workspace = true
 tokio.workspace = true
 clap.workspace = true
 dotenv.workspace = true

@@ -30,22 +30,6 @@ impl VadServiceController {
         Ok((audio, config))
     }
 
-    // async fn get_audio_and_config_from_stream_request(request: &VadStreamRequest) -> Result<(Vec<i16>, AudioConfig), Status> {
-    //     // get first message from stream
-    //     let mut stream = request.into_inner();
-    //     let first_message = stream
-    //         .message()
-    //         .await?
-    //         .and_then(|m| m.content)
-    //         .ok_or_else(|| Status::invalid_argument("No messages in stream"))?;
-    //     let config = match first_message {
-    //         Content::Config(config) => Ok(config),
-    //         Content::Audio(_) => Err(Status::invalid_argument("First message must be config")),
-    //     }?;
-    //
-    //     stream
-    // }
-    //
     fn transform_audio_to_i16(audio: &[u8], config: &AudioConfig) -> Result<Vec<i16>, Status> {
         match config.audio_type() {
             AudioType::RawPcmS16le => Ok(tools::wav::bytes_to_i16(audio)),
@@ -58,7 +42,7 @@ impl VadServiceController {
                 Err(VadServiceError::InvalidAudio("Only pcm_s16le and pcm_s16be are supported".to_string()))
             }
         }
-        .map_err(|e| Status::invalid_argument(format!("Failed to parse audio: {}", e)))
+        .map_err(|e| Status::invalid_argument(format!("{}", e)))
     }
 }
 

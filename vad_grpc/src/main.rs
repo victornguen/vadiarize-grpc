@@ -7,7 +7,7 @@ mod settings;
 mod tools;
 
 use crate::controller::VadServiceController;
-use crate::pb::vad_grpc_v1::vad_recognizer_server;
+use crate::pb::vad_grpc_v1::{vad_recognizer_server, FILE_DESCRIPTOR_SET};
 use crate::settings::settings::Settings;
 pub(crate) use service::vad::VadService;
 
@@ -45,8 +45,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let vad_server =
         vad_recognizer_server::VadRecognizerServer::new(vad_service).max_decoding_message_size(100 * 1024 * 1024);
 
+    let reflection_service_v1alpha = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build_v1alpha()?;
+
+    let reflection_service_v1 = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build_v1()?;
+
     tonic::transport::Server::builder()
         .add_service(vad_server)
+        .add_service(reflection_service_v1)
+        .add_service(reflection_service_v1alpha)
         .serve(addr.parse()?)
         .await?;
 
@@ -57,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use crate::controller::VadServiceController;
     use crate::pb::vad_grpc_v1::vad_recognizer_client::VadRecognizerClient;
-    use crate::pb::vad_grpc_v1::{vad_recognizer_server, AudioType, VadRequest, VadStreamRequest};
+    use crate::pb::vad_grpc_v1::{vad_recognizer_server, AudioType, VadRequest, VadStreamRequest, FILE_DESCRIPTOR_SET};
     use crate::settings::settings::Settings;
     use std::net::TcpListener;
     use std::sync::{Arc, LazyLock};
